@@ -15,10 +15,17 @@ public class FermentJar : MonoBehaviour
     public TextMeshProUGUI timerText;
 
     private bool isFermenting = false;
+    private bool isReadyToClaim = false;
     private DateTime completeTime;
 
     private void Start()
     {
+        if (jarButton != null)
+        {
+            jarButton.onClick.RemoveAllListeners();
+            jarButton.onClick.AddListener(OnJarButtonClicked);
+        }
+
         CheckSavedState();
     }
 
@@ -32,13 +39,37 @@ public class FermentJar : MonoBehaviour
             {
                 // หมักเสร็จแล้ว
                 isFermenting = false;
-                timerText.text = "READY!";
-                jarButton.interactable = true;
+                isReadyToClaim = true;
+                if (timerText != null) timerText.text = "READY!";
+                if (jarButton != null) jarButton.interactable = true;
             }
             else
             {
-                timerText.text = string.Format("{0:D2}:{1:D2}", remaining.Minutes, remaining.Seconds);
+                if (timerText != null)
+                {
+                    if (remaining.TotalHours >= 1)
+                    {
+                        timerText.text = string.Format("{0:D2}:{1:D2}:{2:D2}", (int)remaining.TotalHours, remaining.Minutes, remaining.Seconds);
+                    }
+                    else
+                    {
+                        timerText.text = string.Format("{0:D2}:{1:D2}", remaining.Minutes, remaining.Seconds);
+                    }
+                }
             }
+        }
+    }
+
+    // ฟังก์ชันจัดการคลิกของโหลหมัก
+    public void OnJarButtonClicked()
+    {
+        if (isReadyToClaim)
+        {
+            ClaimReward();
+        }
+        else if (!isFermenting)
+        {
+            StartFermenting();
         }
     }
 
@@ -50,19 +81,28 @@ public class FermentJar : MonoBehaviour
         PlayerPrefs.Save();
 
         isFermenting = true;
-        jarButton.interactable = false;
+        isReadyToClaim = false;
+        if (jarButton != null) jarButton.interactable = false;
     }
 
     // กดรับของเมื่อหมักเสร็จ
     public void ClaimReward()
     {
-        GameManager.Instance.pickles += rewardAmount;
-        GameManager.Instance.UpdateUI();
+        if (GameManager.Instance != null)
+        {
+            // ได้รับแต้มหมักคูณตาม Rebirth Multiplier
+            double finalReward = rewardAmount * GameManager.Instance.CurrentRebirthMultiplier;
+            GameManager.Instance.pickles += finalReward;
+            GameManager.Instance.UpdateUI();
+        }
 
         PlayerPrefs.DeleteKey(jarID + "_EndTime");
-        timerText.text = "START";
-        jarButton.onClick.RemoveAllListeners();
-        jarButton.onClick.AddListener(StartFermenting);
+        PlayerPrefs.Save();
+
+        isReadyToClaim = false;
+        isFermenting = false;
+        if (timerText != null) timerText.text = "START";
+        if (jarButton != null) jarButton.interactable = true;
     }
 
     private void CheckSavedState()
@@ -74,19 +114,24 @@ public class FermentJar : MonoBehaviour
 
             if (DateTime.UtcNow >= completeTime)
             {
-                timerText.text = "READY!";
-                jarButton.onClick.AddListener(ClaimReward);
+                isReadyToClaim = true;
+                isFermenting = false;
+                if (timerText != null) timerText.text = "READY!";
+                if (jarButton != null) jarButton.interactable = true;
             }
             else
             {
                 isFermenting = true;
-                jarButton.interactable = false;
+                isReadyToClaim = false;
+                if (jarButton != null) jarButton.interactable = false;
             }
         }
         else
         {
-            timerText.text = "START";
-            jarButton.onClick.AddListener(StartFermenting);
+            isReadyToClaim = false;
+            isFermenting = false;
+            if (timerText != null) timerText.text = "START";
+            if (jarButton != null) jarButton.interactable = true;
         }
     }
 }
